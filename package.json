@@ -1,0 +1,73 @@
+{
+  "name": "react-native-chess-kit",
+  "version": "0.1.0",
+  "description": "High-performance chess board for React Native. Single gesture handler, ~40 components, 0 re-renders during drag. Built on Reanimated + Gesture Handler.",
+  "main": "lib/commonjs/index.js",
+  "module": "lib/module/index.js",
+  "types": "lib/typescript/src/index.d.ts",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
+  "files": [
+    "src",
+    "lib",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/__mocks__"
+  ],
+  "scripts": {
+    "build": "bob build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf lib"
+  },
+  "keywords": [
+    "react-native",
+    "chess",
+    "chessboard",
+    "chess-board",
+    "reanimated",
+    "gesture-handler",
+    "performance",
+    "60fps"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anas-asghar4831/react-native-chess-kit"
+  },
+  "homepage": "https://github.com/anas-asghar4831/react-native-chess-kit#readme",
+  "bugs": {
+    "url": "https://github.com/anas-asghar4831/react-native-chess-kit/issues"
+  },
+  "author": "anas-asghar4831",
+  "license": "MIT",
+  "peerDependencies": {
+    "chess.js": ">=1.0.0",
+    "react": ">=18.0.0",
+    "react-native": ">=0.70.0",
+    "react-native-gesture-handler": ">=2.0.0",
+    "react-native-reanimated": ">=3.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "chess.js": "^1.4.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-builder-bob": "^0.35.0",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.1.1",
+    "typescript": "~5.9.2"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      "commonjs",
+      "module",
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  }
+}
