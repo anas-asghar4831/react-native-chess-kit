@@ -3,8 +3,13 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withSpring,
+  FadeOut,
   type SharedValue,
 } from 'react-native-reanimated';
+
+import type { AnimationConfig } from './types';
+import { DEFAULT_MOVE_DURATION, CAPTURE_FADE_DURATION } from './constants';
 
 type BoardPieceProps = {
   /** Target pixel position (top-left of destination square) */
@@ -12,8 +17,10 @@ type BoardPieceProps = {
   targetY: number;
   /** Square size in pixels */
   squareSize: number;
-  /** Move animation duration in ms */
-  moveDuration: number;
+  /** Animation config for piece movement (timing or spring) */
+  animationConfig?: AnimationConfig;
+  /** Fallback move duration if animationConfig not provided */
+  moveDuration?: number;
   /** The piece visual (rendered by parent via renderPiece) */
   children: React.ReactElement;
   /** Gesture state: is this piece currently being dragged? */
@@ -24,25 +31,61 @@ type BoardPieceProps = {
 };
 
 /**
+ * Animate a shared value using the provided AnimationConfig.
+ * Falls back to withTiming with moveDuration for backwards compatibility.
+ */
+function animateValue(
+  target: number,
+  config?: AnimationConfig,
+  moveDuration?: number,
+): number {
+  if (config) {
+    if (config.type === 'spring') {
+      return withSpring(target, {
+        damping: config.damping ?? 15,
+        stiffness: config.stiffness ?? 200,
+        mass: config.mass ?? 1,
+      });
+    }
+    // timing
+    return withTiming(target, {
+      duration: config.duration ?? DEFAULT_MOVE_DURATION,
+    });
+  }
+
+  const duration = moveDuration ?? DEFAULT_MOVE_DURATION;
+  if (duration <= 0) return target;
+  return withTiming(target, { duration });
+}
+
+/**
  * A single animated chess piece.
  *
- * Animates ONLY `transform` and `opacity` — Reanimated's fast path on Android.
- * No layout properties (top/left/width/height) are animated, avoiding costly
- * layout recalculations on low-end devices.
+ * Uses two nested Animated.Views to avoid the Reanimated warning
+ * "Property opacity may be overwritten by a layout animation":
+ *
+ * Outer view: position (transform) + exiting layout animation (FadeOut)
+ * Inner view: drag-hide opacity
+ *
+ * Only `transform` and `opacity` are animated — Reanimated's fast path
+ * on Android. No layout properties (top/left/width/height), avoiding
+ * costly layout recalculations on low-end devices.
  *
  * During drag:
- * - Original piece hides (opacity: 0) — the drag ghost shows instead
- * - No position changes on the original piece during drag
+ * - Inner view hides (opacity: 0) — the drag ghost shows instead
  *
  * After a move:
- * - Snaps to new position via withTiming on translateX/translateY
- * - Duration controlled by user's animation speed setting
+ * - Outer view snaps to new position via withTiming/withSpring
+ *
+ * On capture (unmount):
+ * - Outer view fades out via exiting FadeOut (no conflict with inner opacity)
  */
 export const BoardPieceView = React.memo(
   function BoardPieceView({
     targetX,
     targetY,
     squareSize,
+    animationConfig,
     moveDuration,
     children,
     activeSquare,
@@ -57,25 +100,23 @@ export const BoardPieceView = React.memo(
     // useEffect is the correct pattern for reacting to JS prop changes —
     // useDerivedValue is meant for shared-value-to-shared-value derivation.
     useEffect(() => {
-      currentX.value = moveDuration > 0
-        ? withTiming(targetX, { duration: moveDuration })
-        : targetX;
-      currentY.value = moveDuration > 0
-        ? withTiming(targetY, { duration: moveDuration })
-        : targetY;
-    }, [targetX, targetY, moveDuration, currentX, currentY]);
+      currentX.value = animateValue(targetX, animationConfig, moveDuration);
+      currentY.value = animateValue(targetY, animationConfig, moveDuration);
+    }, [targetX, targetY, animationConfig, moveDuration, currentX, currentY]);
 
-    const animatedStyle = useAnimatedStyle(() => {
+    // Position style on outer view — no opacity here to avoid conflict
+    // with the FadeOut exiting layout animation
+    const positionStyle = useAnimatedStyle(() => ({
+      transform: [
+        { translateX: currentX.value },
+        { translateY: currentY.value },
+      ],
+    }));
+
+    // Drag-hide opacity on inner view — separate from the exiting animation
+    const opacityStyle = useAnimatedStyle(() => {
       const isBeingDragged = isDragging.value && activeSquare.value === square;
-
-      return {
-        transform: [
-          { translateX: currentX.value },
-          { translateY: currentY.value },
-        ],
-        // Hide original piece during drag — drag ghost renders on top
-        opacity: isBeingDragged ? 0 : 1,
-      };
+      return { opacity: isBeingDragged ? 0 : 1 };
     });
 
     return (
@@ -86,19 +127,26 @@ export const BoardPieceView = React.memo(
             width: squareSize,
             height: squareSize,
           },
-          animatedStyle,
+          positionStyle,
         ]}
+        // Fade out when this piece is captured (removed from the piece list).
+        // Lives on the outer view so it doesn't conflict with the
+        // drag-hide opacity on the inner view.
+        exiting={FadeOut.duration(CAPTURE_FADE_DURATION)}
       >
-        {children}
+        <Animated.View style={[{ flex: 1 }, opacityStyle]}>
+          {children}
+        </Animated.View>
       </Animated.View>
     );
   },
-  // Custom comparator: only re-render when position or square changes
+  // Custom comparator: only re-render when position, square, or animation config changes
   (prev, next) =>
     prev.targetX === next.targetX &&
     prev.targetY === next.targetY &&
     prev.square === next.square &&
     prev.squareSize === next.squareSize &&
     prev.moveDuration === next.moveDuration &&
+    prev.animationConfig === next.animationConfig &&
     prev.children === next.children,
 );

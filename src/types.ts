@@ -10,9 +10,20 @@ export type ChessColor = 'white' | 'black';
 /** How the user interacts with pieces */
 export type MoveMethod = 'drag' | 'click' | 'both';
 
+/** Promotion piece choice */
+export type PromotionPiece = 'q' | 'r' | 'b' | 'n';
+
+/** Haptic feedback event types -- consumer wires to their preferred haptics library */
+export type HapticType = 'select' | 'move' | 'capture' | 'error';
+
 // ---------------------------------------------------------------------------
 // Piece data
 // ---------------------------------------------------------------------------
+
+/** Standard piece codes used throughout the library */
+export type PieceCode =
+  | 'wp' | 'wn' | 'wb' | 'wr' | 'wq' | 'wk'
+  | 'bp' | 'bn' | 'bb' | 'br' | 'bq' | 'bk';
 
 /** A single piece on the board with its position and identity */
 export type BoardPiece = {
@@ -34,24 +45,81 @@ export type ParsedPiece = {
 };
 
 // ---------------------------------------------------------------------------
-// Board ref (exposed to consumers via forwardRef)
+// Overlay data types
 // ---------------------------------------------------------------------------
 
-export type BoardRef = {
-  /** Pre-apply a move to internal state. Visual animation happens when parent updates the FEN prop. */
-  move: (move: { from: string; to: string }) => void;
-  /** Highlight a square with a color */
-  highlight: (square: string, color: string) => void;
-  /** Clear all imperative highlights */
-  clearHighlights: () => void;
-  /** Reset board to a new FEN position */
-  resetBoard: (fen: string) => void;
-  /** Undo the last visually applied move (snap back to previous position) */
-  undo: () => void;
+/** A square highlight (colored rectangle on a specific square) */
+export type HighlightData = {
+  square: string;
+  color: string;
+};
+
+/** An arrow drawn between two squares */
+export type ArrowData = {
+  from: string;
+  to: string;
+  /** Arrow color. Default: theme-dependent */
+  color?: string;
+  /** Stroke width as percentage of square size. Default: 0.2 */
+  width?: number;
+};
+
+/** A shape drawn on the board */
+export type ShapeData = {
+  type: 'circle';
+  square: string;
+  color?: string;
+};
+
+/** A text annotation on a square (!, ?, !!, ??, etc.) */
+export type AnnotationData = {
+  square: string;
+  text: string;
+  color?: string;
+  backgroundColor?: string;
+};
+
+/** A premove queued for execution */
+export type PremoveData = {
+  from: string;
+  to: string;
+  promotion?: PromotionPiece;
 };
 
 // ---------------------------------------------------------------------------
-// Board props
+// Animation configuration
+// ---------------------------------------------------------------------------
+
+export type TimingAnimationConfig = {
+  type: 'timing';
+  /** Duration in ms. Default: 200 */
+  duration?: number;
+};
+
+export type SpringAnimationConfig = {
+  type: 'spring';
+  /** Damping ratio. Default: 0.7 */
+  damping?: number;
+  /** Stiffness. Default: 200 */
+  stiffness?: number;
+  /** Mass. Default: 1 */
+  mass?: number;
+};
+
+/** Animation configuration for piece movement */
+export type AnimationConfig = TimingAnimationConfig | SpringAnimationConfig;
+
+// ---------------------------------------------------------------------------
+// Piece set
+// ---------------------------------------------------------------------------
+
+/** Map of piece code to React element renderer */
+export type PieceSetMap = {
+  [code in PieceCode]: (size: number) => React.ReactElement;
+};
+
+// ---------------------------------------------------------------------------
+// Board colors / themes
 // ---------------------------------------------------------------------------
 
 export type BoardColors = {
@@ -59,33 +127,189 @@ export type BoardColors = {
   dark: string;
 };
 
+/** A complete board theme with all configurable colors */
+export type BoardTheme = {
+  /** Display name for the theme */
+  name: string;
+  /** Square colors */
+  board: BoardColors;
+  /** Last move highlight color */
+  lastMove: string;
+  /** Check highlight color */
+  check: string;
+  /** Selected piece square color */
+  selected: string;
+  /** Legal move dot color */
+  legalDot: string;
+  /** Premove highlight color */
+  premove: string;
+  /** Arrow default color */
+  arrow: string;
+  /** Coordinate text colors */
+  coordinates: {
+    light: string;
+    dark: string;
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Board ref (exposed to consumers via forwardRef)
+// ---------------------------------------------------------------------------
+
+export type BoardRef = {
+  /** Pre-apply a move to internal state. Visual animation happens when parent updates the FEN prop. */
+  move: (move: { from: string; to: string }) => void;
+  /** Highlight a square with a color. Adds to existing imperative highlights. */
+  highlight: (square: string, color: string) => void;
+  /** Clear all imperative highlights */
+  clearHighlights: () => void;
+  /** Reset board to a new FEN position */
+  resetBoard: (fen: string) => void;
+  /** Undo the last visually applied move (snap back to previous position) */
+  undo: () => void;
+  /** Clear any queued premoves */
+  clearPremoves: () => void;
+};
+
+// ---------------------------------------------------------------------------
+// Board props
+// ---------------------------------------------------------------------------
+
 export type BoardProps = {
+  // --- Required ---
+
   /** Current board position in FEN notation */
   fen: string;
   /** Which color is at the bottom of the board */
   orientation: ChessColor;
-  /** Board width/height in pixels */
-  boardSize: number;
-  /** Whether gesture interaction is enabled */
-  gestureEnabled: boolean;
-  /** Which side can interact: 'white', 'black', or 'both' */
-  player: ChessColor | 'both';
-  /** Called after a visual move is applied */
-  onMove?: (info: { from: string; to: string }) => void;
-  /** Board square colors */
-  colors: BoardColors;
-  /** Move animation duration in ms (0 = instant) */
-  moveDuration: number;
-  /** Whether to show file labels (a-h) */
-  withLetters: boolean;
-  /** Whether to show rank numbers (1-8) */
-  withNumbers: boolean;
+
+  // --- Layout ---
+
+  /** Board width/height in pixels. If omitted, auto-sizes from parent via onLayout. */
+  boardSize?: number;
+
+  // --- Interaction ---
+
+  /** Whether gesture interaction is enabled. Default: true */
+  gestureEnabled?: boolean;
+  /** Which side can interact: 'white', 'black', or 'both'. Default: 'both' */
+  player?: ChessColor | 'both';
+  /** How the user moves pieces. Default: 'both' */
+  moveMethod?: MoveMethod;
+  /** Whether to show legal move dots when a piece is selected. Default: true */
+  showLegalMoves?: boolean;
+  /** Enable premove queuing. Default: false */
+  premovesEnabled?: boolean;
+
+  // --- Appearance ---
+
+  /** Board square colors. Default: green theme */
+  colors?: BoardColors;
+  /** Whether to show file labels (a-h). Default: true */
+  withLetters?: boolean;
+  /** Whether to show rank numbers (1-8). Default: true */
+  withNumbers?: boolean;
   /** Custom piece renderer. Receives piece code ('wp', 'bk', etc.) and pixel size. */
   renderPiece?: (pieceCode: string, size: number) => React.ReactElement;
-  /** Whether to show legal move dots when a piece is selected */
-  showLegalMoves: boolean;
-  /** How the user moves pieces */
-  moveMethod: MoveMethod;
+  /** Built-in piece set (alternative to renderPiece). Default: built-in SVG set */
+  pieceSet?: PieceSetMap;
+
+  // --- Overlays ---
+
+  /** Last move to highlight (yellow on from/to squares) */
+  lastMove?: { from: string; to: string } | null;
+  /** Custom highlights. Merged with auto-highlights (last move, check). */
+  highlights?: HighlightData[];
+  /** Arrows to draw on the board */
+  arrows?: ArrowData[];
+  /** Shapes to draw on the board (circles) */
+  shapes?: ShapeData[];
+  /** Text annotations on squares (!, ?, etc.) */
+  annotations?: AnnotationData[];
+  /** Show drag target indicator under finger during drag. Default: true */
+  showDragTarget?: boolean;
+
+  // --- Overlay colors (overrides theme defaults) ---
+
+  /** Last move highlight color. Default: 'rgba(255,255,0,0.4)' */
+  lastMoveColor?: string;
+  /** Check highlight color. Default: radial gradient red */
+  checkHighlightColor?: string;
+  /** Selected piece square color. Default: 'rgba(20,85,200,0.5)' */
+  selectedSquareColor?: string;
+  /** Premove highlight color. Default: 'rgba(20,85,200,0.3)' */
+  premoveColor?: string;
+  /** Drag target highlight color. Default: 'rgba(0,0,0,0.1)' */
+  dragTargetColor?: string;
+
+  // --- Animation ---
+
+  /** Move animation duration in ms (0 = instant). Default: 200 */
+  moveDuration?: number;
+  /** Animation configuration (timing or spring). Overrides moveDuration if provided. */
+  animationConfig?: AnimationConfig;
+  /** Animate board rotation on orientation change. Default: true */
+  animateFlip?: boolean;
+
+  // --- Promotion ---
+
+  /**
+   * Called when a pawn promotion occurs. If not provided, auto-promotes to queen.
+   * Return the chosen piece to complete the promotion.
+   */
+  onPromotion?: (from: string, to: string) => Promise<PromotionPiece> | PromotionPiece;
+
+  // --- Callbacks ---
+
+  /** Called after a visual move is applied */
+  onMove?: (info: { from: string; to: string }) => void;
+  /** Called when a piece is tapped */
+  onPieceClick?: (square: string, piece: PieceCode) => void;
+  /** Called when an empty square or opponent piece is tapped */
+  onSquareClick?: (square: string) => void;
+  /** Called when a piece drag begins */
+  onPieceDragBegin?: (square: string, piece: PieceCode) => void;
+  /** Called when a piece drag ends (regardless of move validity) */
+  onPieceDragEnd?: (square: string, piece: PieceCode) => void;
+  /** Called on long-press of a square */
+  onSquareLongPress?: (square: string) => void;
+  /** Called when a premove is set */
+  onPremove?: (premove: PremoveData) => void;
+  /**
+   * Haptic feedback callback. Consumer wires to their preferred haptics library.
+   * Called with event type: 'select' (piece pickup), 'move' (piece drop),
+   * 'capture' (piece takes), 'error' (invalid move).
+   */
+  onHaptic?: (type: HapticType) => void;
+};
+
+// ---------------------------------------------------------------------------
+// Static board props (non-interactive variant)
+// ---------------------------------------------------------------------------
+
+export type StaticBoardProps = {
+  /** Board position in FEN notation */
+  fen: string;
+  /** Which color is at the bottom. Default: 'white' */
+  orientation?: ChessColor;
+  /** Board width/height in pixels. If omitted, auto-sizes from parent. */
+  boardSize?: number;
+  /** Board square colors. Default: green theme */
+  colors?: BoardColors;
+  /** Whether to show coordinate labels. Default: false */
+  withCoordinates?: boolean;
+  /** Custom piece renderer */
+  renderPiece?: (pieceCode: string, size: number) => React.ReactElement;
+  /** Built-in piece set */
+  pieceSet?: PieceSetMap;
+  /** Last move highlight */
+  lastMove?: { from: string; to: string } | null;
+  /** Custom highlights */
+  highlights?: HighlightData[];
+  /** Arrows */
+  arrows?: ArrowData[];
+  /** Annotations */
+  annotations?: AnnotationData[];
 };
 
 // ---------------------------------------------------------------------------
@@ -102,6 +326,8 @@ export type GestureState = {
   isDragging: SharedValue<boolean>;
   /** The piece code being dragged (for rendering the ghost) */
   dragPieceCode: SharedValue<string | null>;
+  /** Square currently under the dragged piece (for drag target highlight) */
+  dragTargetSquare: SharedValue<string | null>;
 };
 
 // ---------------------------------------------------------------------------

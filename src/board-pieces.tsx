@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 
-import type { ChessColor, BoardPiece } from './types';
+import type { ChessColor, BoardPiece, AnimationConfig } from './types';
 import { BoardPieceView } from './board-piece';
 import { squareToXY } from './use-board-pieces';
 
@@ -10,6 +10,7 @@ type BoardPiecesProps = {
   squareSize: number;
   orientation: ChessColor;
   moveDuration: number;
+  animationConfig?: AnimationConfig;
   renderPiece: (code: string, size: number) => React.ReactElement;
   activeSquare: SharedValue<string | null>;
   isDragging: SharedValue<boolean>;
@@ -27,6 +28,7 @@ export const BoardPiecesLayer = React.memo(function BoardPiecesLayer({
   squareSize,
   orientation,
   moveDuration,
+  animationConfig,
   renderPiece,
   activeSquare,
   isDragging,
@@ -43,6 +45,7 @@ export const BoardPiecesLayer = React.memo(function BoardPiecesLayer({
             targetY={y}
             squareSize={squareSize}
             moveDuration={moveDuration}
+            animationConfig={animationConfig}
             activeSquare={activeSquare}
             isDragging={isDragging}
             square={piece.square}
