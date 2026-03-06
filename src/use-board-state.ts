@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
 
@@ -96,7 +96,9 @@ export function useBoardState(initialFen: string): BoardStateReturn {
 
   const isInCheck = useCallback(() => chessRef.current.isCheck(), []);
 
-  return {
+  // Stable reference so Board's useEffect([fen, boardState]) only re-runs
+  // when the fen prop changes — not on every render.
+  return useMemo(() => ({
     getLegalMoves,
     isPlayerPiece,
     applyMove,
@@ -105,5 +107,5 @@ export function useBoardState(initialFen: string): BoardStateReturn {
     getFen,
     getTurn,
     isInCheck,
-  };
+  }), [getLegalMoves, isPlayerPiece, applyMove, undoMove, loadFen, getFen, getTurn, isInCheck]);
 }
