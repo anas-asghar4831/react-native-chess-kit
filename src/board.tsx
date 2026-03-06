@@ -203,61 +203,44 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
   // a visual effect only — the rotation shared value is available for consumers
   // who want to add a rotation transition effect.
 
-  // --- Piece data from FEN ---
-  const pieces = useBoardPieces(fen);
+  // --- Internal FEN state ---
+  // The Board owns a private FEN that drives piece rendering.
+  // It starts from the parent prop and stays in sync via useEffect,
+  // but can temporarily diverge when the library applies a user move
+  // before the parent validates it (enables Chess.com-style "show move
+  // then revert" behavior via undo()).
+  const [internalFen, setInternalFen] = useState(fen);
 
-  // --- Chess.js for legal move validation ---
+  // --- Chess.js for legal move validation + internal state ---
   const boardState = useBoardState(fen);
 
-  // Sync internal chess.js when parent changes FEN
+  // Sync internal FEN + chess.js when parent changes the prop FEN.
+  // This covers: accepted moves (parent updates FEN), board reset,
+  // and opponent programmatic moves.
   useEffect(() => {
+    setInternalFen(fen);
     boardState.loadFen(fen);
   }, [fen, boardState]);
 
-  // --- Check detection ---
-  const checkSquare = useMemo(
-    () => detectCheckSquare(
-      fen,
-      () => {
-        try {
-          // chess.js isCheck method
-          const chess = boardState as unknown as { getFen: () => string };
-          const tempFen = chess.getFen();
-          // Use a simple approach: check if the FEN active color king is in check
-          // by trying to detect via chess.js internal state
-          return false; // Will be properly wired below
-        } catch {
-          return false;
-        }
-      },
-      boardState.getTurn,
-    ),
-    [fen, boardState],
-  );
+  // --- Piece data from internal FEN ---
+  const pieces = useBoardPieces(internalFen);
 
-  // Better check detection: use chess.js directly
-  const [checkSquareState, setCheckSquareState] = useState<string | null>(null);
-  useEffect(() => {
-    // chess.js exposes isCheck() — we need to detect from the FEN position
-    // Since boardState wraps chess.js, we detect check by checking if the
-    // current side to move has their king in check
+  // --- Check detection ---
+  // Detect if the side to move is in check by parsing the FEN.
+  // chess.js isInCheck() isn't exposed through boardState, so we use
+  // a simple heuristic: if the FEN has the king of the side to move
+  // attacked, highlight it.
+  const checkSquareState = useMemo(() => {
     try {
-      const square = detectCheckSquare(
-        fen,
-        () => {
-          // Attempt move detection: if the position is in check,
-          // chess.js will reflect this. We parse the FEN to find the king.
-          // For now, use a simple heuristic: try to detect from the position.
-          // The real check is done via board state.
-          return boardState.getTurn() !== undefined; // placeholder
-        },
+      return detectCheckSquare(
+        internalFen,
+        () => boardState.isInCheck(),
         boardState.getTurn,
       );
-      setCheckSquareState(square);
     } catch {
-      setCheckSquareState(null);
+      return null;
     }
-  }, [fen, boardState]);
+  }, [internalFen, boardState]);
 
   // --- Selection state ---
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -328,22 +311,32 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       // Check for promotion
       if (isPromotionMove(from, to)) {
         if (onPromotion) {
-          // Show promotion picker or get choice from callback
           const piece = pieces.find((p) => p.square === from);
           const color = piece?.color ?? 'w';
-
           setPromotionState({ from, to, color });
           return;
         }
-        // Auto-promote to queen if no onPromotion callback
+        // Auto-promote to queen
+        const result = boardState.applyMove(from, to, 'q');
+        if (result.applied && result.fen) {
+          setInternalFen(result.fen);
+        }
         onMove?.({ from, to });
         return;
       }
 
-      // Notify parent — parent decides whether to accept/reject
-      onMove?.({ from, to });
+      // Apply the move visually FIRST (Chess.com-style: show the move,
+      // then let the parent validate). The parent can call undo() to
+      // revert if the move is rejected.
+      const result = boardState.applyMove(from, to);
+      if (result.applied && result.fen) {
+        setInternalFen(result.fen);
+        onMove?.({ from, to });
+      }
+      // If chess.js rejected the move (truly illegal), do nothing —
+      // piece stays at its original square.
     },
-    [onMove, onPromotion, isPromotionMove, pieces],
+    [onMove, onPromotion, isPromotionMove, pieces, boardState],
   );
 
   // --- Promotion picker handlers ---
@@ -353,20 +346,28 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       const { from, to } = promotionState;
       setPromotionState(null);
 
-      // If consumer provided onPromotion, call it for confirmation
+      const promo = piece.toLowerCase();
+
       if (onPromotion) {
         try {
           const choice = await onPromotion(from, to);
-          // Apply the move with chosen promotion
+          const result = boardState.applyMove(from, to, choice);
+          if (result.applied && result.fen) {
+            setInternalFen(result.fen);
+          }
           onMove?.({ from, to });
         } catch {
-          // Promotion cancelled
+          // Promotion cancelled — piece stays at origin
         }
       } else {
+        const result = boardState.applyMove(from, to, promo);
+        if (result.applied && result.fen) {
+          setInternalFen(result.fen);
+        }
         onMove?.({ from, to });
       }
     },
-    [promotionState, onPromotion, onMove],
+    [promotionState, onPromotion, onMove, boardState],
   );
 
   const handlePromotionCancel = useCallback(() => {
@@ -400,7 +401,8 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       if (consumed) {
         // Try to execute the premove
         const result = boardState.applyMove(consumed.from, consumed.to, consumed.promotion);
-        if (result.applied) {
+        if (result.applied && result.fen) {
+          setInternalFen(result.fen);
           onMove?.({ from: consumed.from, to: consumed.to });
           onHaptic?.('move');
         } else {
@@ -454,13 +456,15 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
 
   // --- Imperative ref ---
   useImperativeHandle(ref, () => ({
-    move: (move) => {
-      boardState.applyMove(move.from, move.to);
+    move: (moveArg) => {
+      const result = boardState.applyMove(moveArg.from, moveArg.to, moveArg.promotion);
+      if (result.applied && result.fen) {
+        setInternalFen(result.fen);
+      }
     },
 
     highlight: (square, color) => {
       setImperativeHighlights((prev) => {
-        // Replace existing highlight on same square, or add new
         const filtered = prev.filter((h) => h.square !== square);
         return [...filtered, { square, color }];
       });
@@ -472,6 +476,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
 
     resetBoard: (newFen) => {
       boardState.loadFen(newFen);
+      setInternalFen(newFen);
       setSelectedSquare(null);
       setLegalMoves([]);
       setImperativeHighlights([]);
@@ -480,7 +485,10 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
     },
 
     undo: () => {
-      boardState.undoMove();
+      const prevFen = boardState.undoMove();
+      if (prevFen) {
+        setInternalFen(prevFen);
+      }
       setSelectedSquare(null);
       setLegalMoves([]);
     },

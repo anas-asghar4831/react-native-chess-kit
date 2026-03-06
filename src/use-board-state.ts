@@ -26,6 +26,8 @@ type BoardStateReturn = {
   getFen: () => string;
   /** Get the current turn from internal state */
   getTurn: () => 'w' | 'b';
+  /** Check if the current side to move is in check */
+  isInCheck: () => boolean;
 };
 
 /**
@@ -92,6 +94,8 @@ export function useBoardState(initialFen: string): BoardStateReturn {
 
   const getTurn = useCallback(() => chessRef.current.turn(), []);
 
+  const isInCheck = useCallback(() => chessRef.current.isCheck(), []);
+
   return {
     getLegalMoves,
     isPlayerPiece,
@@ -100,5 +104,6 @@ export function useBoardState(initialFen: string): BoardStateReturn {
     loadFen,
     getFen,
     getTurn,
+    isInCheck,
   };
 }

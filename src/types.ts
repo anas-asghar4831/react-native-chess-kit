@@ -157,8 +157,8 @@ export type BoardTheme = {
 // ---------------------------------------------------------------------------
 
 export type BoardRef = {
-  /** Pre-apply a move to internal state. Visual animation happens when parent updates the FEN prop. */
-  move: (move: { from: string; to: string }) => void;
+  /** Programmatically apply a move. Animates the piece to the target square. */
+  move: (move: { from: string; to: string; promotion?: string }) => void;
   /** Highlight a square with a color. Adds to existing imperative highlights. */
   highlight: (square: string, color: string) => void;
   /** Clear all imperative highlights */
