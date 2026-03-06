@@ -1,6 +1,6 @@
 {
   "name": "react-native-chess-kit",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "High-performance chess board for React Native. Single gesture handler, ~40 components, 0 re-renders during drag. Built on Reanimated + Gesture Handler.",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",

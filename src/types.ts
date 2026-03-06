@@ -1,4 +1,4 @@
-import type { SharedValue } from 'react-native-reanimated';
+import type { SharedValue, BaseAnimationBuilder } from 'react-native-reanimated';
 
 // ---------------------------------------------------------------------------
 // Core chess types
@@ -253,6 +253,14 @@ export type BoardProps = {
   animationConfig?: AnimationConfig;
   /** Animate board rotation on orientation change. Default: true */
   animateFlip?: boolean;
+  /**
+   * Custom exiting animation for pieces (played on unmount, e.g. captures).
+   * Pass `undefined` to disable all piece exit animations (useful when
+   * remounting the entire board via a React key change — prevents all
+   * pieces from fading out simultaneously).
+   * Default: FadeOut.duration(150)
+   */
+  pieceExitAnimation?: BaseAnimationBuilder | typeof BaseAnimationBuilder;
 
   // --- Promotion ---
 

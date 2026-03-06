@@ -13,6 +13,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  FadeOut,
 } from 'react-native-reanimated';
 
 import type {
@@ -31,6 +32,7 @@ import {
   DEFAULT_SELECTED_COLOR,
   DEFAULT_PREMOVE_COLOR,
   DEFAULT_DRAG_TARGET_COLOR,
+  CAPTURE_FADE_DURATION,
 } from './constants';
 import { DefaultPieceSet } from './pieces';
 import { useBoardPieces } from './use-board-pieces';
@@ -153,6 +155,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
     moveDuration = DEFAULT_MOVE_DURATION,
     animationConfig,
     animateFlip = true,
+    pieceExitAnimation = FadeOut.duration(CAPTURE_FADE_DURATION),
 
     // Promotion
     onPromotion,
@@ -580,6 +583,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
           renderPiece={resolvedRenderer}
           activeSquare={gestureState.activeSquare}
           isDragging={gestureState.isDragging}
+          exitingAnimation={pieceExitAnimation}
         />
 
         {/* Layer 7: Arrows + shapes (SVG overlay) */}

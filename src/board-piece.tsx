@@ -4,12 +4,12 @@ import Animated, {
   useSharedValue,
   withTiming,
   withSpring,
-  FadeOut,
   type SharedValue,
+  type BaseAnimationBuilder,
 } from 'react-native-reanimated';
 
 import type { AnimationConfig } from './types';
-import { DEFAULT_MOVE_DURATION, CAPTURE_FADE_DURATION } from './constants';
+import { DEFAULT_MOVE_DURATION } from './constants';
 
 type BoardPieceProps = {
   /** Target pixel position (top-left of destination square) */
@@ -28,6 +28,11 @@ type BoardPieceProps = {
   isDragging: SharedValue<boolean>;
   /** This piece's current square */
   square: string;
+  /**
+   * Exiting animation played when this piece unmounts (e.g. captured).
+   * Pass `undefined` to disable (piece disappears instantly on unmount).
+   */
+  exitingAnimation?: BaseAnimationBuilder | typeof BaseAnimationBuilder;
 };
 
 /**
@@ -78,7 +83,8 @@ function animateValue(
  * - Outer view snaps to new position via withTiming/withSpring
  *
  * On capture (unmount):
- * - Outer view fades out via exiting FadeOut (no conflict with inner opacity)
+ * - Outer view plays the exitingAnimation (default: FadeOut, no conflict with inner opacity)
+ * - Pass exitingAnimation={undefined} to disable (instant disappear on full board remount)
  */
 export const BoardPieceView = React.memo(
   function BoardPieceView({
@@ -91,6 +97,7 @@ export const BoardPieceView = React.memo(
     activeSquare,
     isDragging,
     square,
+    exitingAnimation,
   }: BoardPieceProps) {
     // Shared values for smooth animated position — written from JS, read on UI thread
     const currentX = useSharedValue(targetX);
@@ -129,10 +136,11 @@ export const BoardPieceView = React.memo(
           },
           positionStyle,
         ]}
-        // Fade out when this piece is captured (removed from the piece list).
+        // Exiting animation when this piece is captured (removed from the piece list).
         // Lives on the outer view so it doesn't conflict with the
         // drag-hide opacity on the inner view.
-        exiting={FadeOut.duration(CAPTURE_FADE_DURATION)}
+        // Pass undefined to disable (e.g. during full board remount via key change).
+        exiting={exitingAnimation}
       >
         <Animated.View style={[{ flex: 1 }, opacityStyle]}>
           {children}
