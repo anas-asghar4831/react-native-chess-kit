@@ -461,6 +461,10 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       if (result.applied && result.fen) {
         setInternalFen(result.fen);
       }
+      // Resolve after the piece animation completes. The moveDuration prop
+      // drives BoardPieceView's withTiming, so this matches exactly.
+      const duration = moveDuration ?? DEFAULT_MOVE_DURATION;
+      return new Promise<void>((resolve) => setTimeout(resolve, duration));
     },
 
     highlight: (square, color) => {

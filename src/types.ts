@@ -157,8 +157,11 @@ export type BoardTheme = {
 // ---------------------------------------------------------------------------
 
 export type BoardRef = {
-  /** Programmatically apply a move. Animates the piece to the target square. */
-  move: (move: { from: string; to: string; promotion?: string }) => void;
+  /**
+   * Programmatically apply a move. Animates the piece to the target square.
+   * Returns a Promise that resolves when the move animation completes.
+   */
+  move: (move: { from: string; to: string; promotion?: string }) => Promise<void>;
   /** Highlight a square with a color. Adds to existing imperative highlights. */
   highlight: (square: string, color: string) => void;
   /** Clear all imperative highlights */
