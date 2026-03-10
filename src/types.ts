@@ -255,12 +255,13 @@ export type BoardProps = {
   animateFlip?: boolean;
   /**
    * Custom exiting animation for pieces (played on unmount, e.g. captures).
-   * Pass `undefined` to disable all piece exit animations (useful when
-   * remounting the entire board via a React key change — prevents all
-   * pieces from fading out simultaneously).
-   * Default: FadeOut.duration(150)
+   * - `undefined` (or omitted): uses default FadeOut.duration(150)
+   * - `null`: disables all piece exit animations (pieces vanish instantly).
+   *   Useful when remounting the entire board via a React key change to
+   *   prevent all pieces from fading out simultaneously.
+   * - Any `BaseAnimationBuilder`: uses the provided animation.
    */
-  pieceExitAnimation?: BaseAnimationBuilder | typeof BaseAnimationBuilder;
+  pieceExitAnimation?: BaseAnimationBuilder | typeof BaseAnimationBuilder | null;
 
   // --- Promotion ---
 

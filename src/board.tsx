@@ -155,7 +155,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
     moveDuration = DEFAULT_MOVE_DURATION,
     animationConfig,
     animateFlip = true,
-    pieceExitAnimation = FadeOut.duration(CAPTURE_FADE_DURATION),
+    pieceExitAnimation,
 
     // Promotion
     onPromotion,
@@ -182,6 +182,12 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
   const boardSize = boardSizeProp ?? measuredSize;
   const squareSize = boardSize / 8;
   const boardColors = colors ?? DEFAULT_BOARD_COLORS;
+
+  // Resolve piece exit animation: null = disabled, undefined = default FadeOut
+  const resolvedPieceExitAnimation =
+    pieceExitAnimation === null
+      ? undefined
+      : (pieceExitAnimation ?? FadeOut.duration(CAPTURE_FADE_DURATION));
 
   // --- Board flip animation ---
   const flipRotation = useSharedValue(orientation === 'black' ? 180 : 0);
@@ -583,7 +589,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
           renderPiece={resolvedRenderer}
           activeSquare={gestureState.activeSquare}
           isDragging={gestureState.isDragging}
-          exitingAnimation={pieceExitAnimation}
+          exitingAnimation={resolvedPieceExitAnimation}
         />
 
         {/* Layer 7: Arrows + shapes (SVG overlay) */}
