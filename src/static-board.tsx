@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 
 import type { StaticBoardProps, ChessColor, PieceCode } from './types';
-import { DEFAULT_BOARD_COLORS, DEFAULT_LAST_MOVE_COLOR } from './constants';
+import { DEFAULT_BOARD_COLORS, DEFAULT_LAST_MOVE_COLOR, COORDINATE_GUTTER_SCALE } from './constants';
 import { DefaultPieceSet } from './pieces';
 import { useBoardPieces, squareToXY } from './use-board-pieces';
 import { BoardBackground } from './board-background';
@@ -24,7 +24,8 @@ export const StaticBoard = React.memo(function StaticBoard({
   orientation = 'white',
   boardSize: boardSizeProp,
   colors,
-  withCoordinates = false,
+  coordinatePosition: coordinatePositionProp,
+  withCoordinates,
   renderPiece,
   pieceSet,
   lastMove,
@@ -39,9 +40,18 @@ export const StaticBoard = React.memo(function StaticBoard({
     setMeasuredSize(Math.min(width, height));
   }, []);
 
-  const boardSize = boardSizeProp ?? measuredSize;
-  const squareSize = boardSize / 8;
+  const outerSize = boardSizeProp ?? measuredSize;
   const boardColors = colors ?? DEFAULT_BOARD_COLORS;
+
+  // Resolve coordinate position: new prop > legacy boolean > 'none'
+  const coordinatePosition = coordinatePositionProp
+    ?? (withCoordinates ? 'inside' : 'none');
+  const isOutside = coordinatePosition === 'outside';
+  const isCoordVisible = coordinatePosition !== 'none';
+
+  const gutterWidth = isOutside ? Math.round((outerSize / 8) * COORDINATE_GUTTER_SCALE) : 0;
+  const boardSize = isOutside ? outerSize - gutterWidth : outerSize;
+  const squareSize = boardSize / 8;
 
   // --- Piece data from FEN ---
   const pieces = useBoardPieces(fen);
@@ -59,16 +69,18 @@ export const StaticBoard = React.memo(function StaticBoard({
   }, [renderPiece, pieceSet]);
 
   // If no size yet (auto-sizing), render invisible container for measurement
-  if (boardSize === 0) {
+  if (outerSize === 0) {
     return (
       <View style={{ flex: 1, aspectRatio: 1 }} onLayout={handleLayout} />
     );
   }
 
-  return (
+  const boardContent = (
     <View
-      style={{ width: boardSize, height: boardSize }}
-      onLayout={boardSizeProp ? undefined : handleLayout}
+      style={isOutside
+        ? { width: boardSize, height: boardSize, position: 'absolute', top: 0, right: 0 }
+        : { width: boardSize, height: boardSize }}
+      onLayout={!isOutside && !boardSizeProp ? handleLayout : undefined}
       accessibilityLabel="Chess board"
       accessibilityRole="image"
     >
@@ -79,8 +91,8 @@ export const StaticBoard = React.memo(function StaticBoard({
         darkColor={boardColors.dark}
       />
 
-      {/* Layer 2: Coordinates */}
-      {withCoordinates && (
+      {/* Layer 2: Inside coordinates */}
+      {isCoordVisible && !isOutside && (
         <BoardCoordinates
           boardSize={boardSize}
           orientation={orientation}
@@ -88,6 +100,7 @@ export const StaticBoard = React.memo(function StaticBoard({
           darkColor={boardColors.dark}
           withLetters
           withNumbers
+          position="inside"
         />
       )}
 
@@ -147,4 +160,28 @@ export const StaticBoard = React.memo(function StaticBoard({
       )}
     </View>
   );
+
+  if (isOutside) {
+    return (
+      <View
+        style={{ width: outerSize, height: boardSize + gutterWidth }}
+        onLayout={boardSizeProp ? undefined : handleLayout}
+      >
+        {boardContent}
+
+        <BoardCoordinates
+          boardSize={boardSize}
+          orientation={orientation}
+          lightColor={boardColors.light}
+          darkColor={boardColors.dark}
+          withLetters
+          withNumbers
+          position="outside"
+          gutterWidth={gutterWidth}
+        />
+      </View>
+    );
+  }
+
+  return boardContent;
 });

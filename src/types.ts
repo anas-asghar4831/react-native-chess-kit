@@ -10,6 +10,9 @@ export type ChessColor = 'white' | 'black';
 /** How the user interacts with pieces */
 export type MoveMethod = 'drag' | 'click' | 'both';
 
+/** Where to render file/rank coordinate labels */
+export type CoordinatePosition = 'inside' | 'outside' | 'none';
+
 /** Promotion piece choice */
 export type PromotionPiece = 'q' | 'r' | 'b' | 'n';
 
@@ -208,9 +211,18 @@ export type BoardProps = {
 
   /** Board square colors. Default: green theme */
   colors?: BoardColors;
-  /** Whether to show file labels (a-h). Default: true */
+  /**
+   * Where to render file/rank coordinate labels.
+   * - 'inside'  — overlaid on the edge squares (default)
+   * - 'outside' — in a gutter around the board (board shrinks slightly)
+   * - 'none'    — hidden
+   *
+   * @default 'inside'
+   */
+  coordinatePosition?: CoordinatePosition;
+  /** @deprecated Use coordinatePosition instead. Kept for backwards compat. */
   withLetters?: boolean;
-  /** Whether to show rank numbers (1-8). Default: true */
+  /** @deprecated Use coordinatePosition instead. Kept for backwards compat. */
   withNumbers?: boolean;
   /** Custom piece renderer. Receives piece code ('wp', 'bk', etc.) and pixel size. */
   renderPiece?: (pieceCode: string, size: number) => React.ReactElement;
@@ -308,7 +320,16 @@ export type StaticBoardProps = {
   boardSize?: number;
   /** Board square colors. Default: green theme */
   colors?: BoardColors;
-  /** Whether to show coordinate labels. Default: false */
+  /**
+   * Where to render file/rank coordinate labels.
+   * - 'inside'  — overlaid on the edge squares
+   * - 'outside' — in a gutter around the board (board shrinks slightly)
+   * - 'none'    — hidden (default)
+   *
+   * @default 'none'
+   */
+  coordinatePosition?: CoordinatePosition;
+  /** @deprecated Use coordinatePosition instead */
   withCoordinates?: boolean;
   /** Custom piece renderer */
   renderPiece?: (pieceCode: string, size: number) => React.ReactElement;

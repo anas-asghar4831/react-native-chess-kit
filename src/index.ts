@@ -65,6 +65,7 @@ export type {
   BoardProps,
   BoardColors,
   StaticBoardProps,
+  CoordinatePosition,
 
   // Piece data (useful for custom piece renderers)
   BoardPiece,

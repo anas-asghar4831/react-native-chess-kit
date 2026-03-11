@@ -75,6 +75,9 @@ export const ANNOTATION_SCALE = 0.35;
 /** Coordinate font size as fraction of square size */
 export const COORDINATE_FONT_SCALE = 0.22;
 
+/** Outside-coordinate gutter width as fraction of square size */
+export const COORDINATE_GUTTER_SCALE = 0.45;
+
 /** Drag ghost scale factor (1.1x larger than normal piece) */
 export const DRAG_GHOST_SCALE = 1.1;
 

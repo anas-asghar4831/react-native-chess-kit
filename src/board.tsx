@@ -33,6 +33,7 @@ import {
   DEFAULT_PREMOVE_COLOR,
   DEFAULT_DRAG_TARGET_COLOR,
   CAPTURE_FADE_DURATION,
+  COORDINATE_GUTTER_SCALE,
 } from './constants';
 import { DefaultPieceSet } from './pieces';
 import { useBoardPieces } from './use-board-pieces';
@@ -131,8 +132,9 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
 
     // Appearance
     colors,
-    withLetters = true,
-    withNumbers = true,
+    coordinatePosition: coordinatePositionProp,
+    withLetters: withLettersProp,
+    withNumbers: withNumbersProp,
     renderPiece,
     pieceSet,
 
@@ -179,9 +181,19 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
     setMeasuredSize(Math.min(width, height));
   }, []);
 
-  const boardSize = boardSizeProp ?? measuredSize;
-  const squareSize = boardSize / 8;
+  const outerSize = boardSizeProp ?? measuredSize;
   const boardColors = colors ?? DEFAULT_BOARD_COLORS;
+
+  // Resolve coordinate position: new prop takes precedence over legacy booleans
+  const coordinatePosition = coordinatePositionProp
+    ?? (withLettersProp === false && withNumbersProp === false ? 'none' : 'inside');
+  const isOutside = coordinatePosition === 'outside';
+  const isCoordVisible = coordinatePosition !== 'none';
+
+  // When outside: reserve gutter space; inner board = outer minus gutters
+  const gutterWidth = isOutside ? Math.round((outerSize / 8) * COORDINATE_GUTTER_SCALE) : 0;
+  const boardSize = isOutside ? outerSize - gutterWidth : outerSize;
+  const squareSize = boardSize / 8;
 
   // Resolve piece exit animation: null = disabled, undefined = default FadeOut
   const resolvedPieceExitAnimation =
@@ -512,17 +524,20 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
   }));
 
   // If no size yet (auto-sizing), render invisible container for measurement
-  if (boardSize === 0) {
+  if (outerSize === 0) {
     return (
       <View style={{ flex: 1, aspectRatio: 1 }} onLayout={handleLayout} />
     );
   }
 
-  return (
+  // Inner board with all interactive layers
+  const boardContent = (
     <GestureDetector gesture={gesture}>
       <View
-        style={{ width: boardSize, height: boardSize }}
-        onLayout={boardSizeProp ? undefined : handleLayout}
+        style={isOutside
+          ? { width: boardSize, height: boardSize, position: 'absolute', top: 0, right: 0 }
+          : { width: boardSize, height: boardSize }}
+        onLayout={!isOutside && !boardSizeProp ? handleLayout : undefined}
         accessibilityLabel="Chess board"
         accessibilityRole="adjustable"
       >
@@ -533,15 +548,18 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
           darkColor={boardColors.dark}
         />
 
-        {/* Layer 2: Coordinate labels (a-h, 1-8) */}
-        <BoardCoordinates
-          boardSize={boardSize}
-          orientation={orientation}
-          lightColor={boardColors.light}
-          darkColor={boardColors.dark}
-          withLetters={withLetters}
-          withNumbers={withNumbers}
-        />
+        {/* Layer 2: Inside coordinate labels (when position='inside') */}
+        {isCoordVisible && !isOutside && (
+          <BoardCoordinates
+            boardSize={boardSize}
+            orientation={orientation}
+            lightColor={boardColors.light}
+            darkColor={boardColors.dark}
+            withLetters
+            withNumbers
+            position="inside"
+          />
+        )}
 
         {/* Layer 3: Square highlights (last move, check, selected, premove, custom, imperative) */}
         <BoardHighlights
@@ -638,4 +656,30 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       </View>
     </GestureDetector>
   );
+
+  // Outside coordinates: wrap board in outer container with gutter
+  if (isOutside) {
+    return (
+      <View
+        style={{ width: outerSize, height: boardSize + gutterWidth }}
+        onLayout={boardSizeProp ? undefined : handleLayout}
+      >
+        {boardContent}
+
+        {/* Outside coordinate labels in the gutter area */}
+        <BoardCoordinates
+          boardSize={boardSize}
+          orientation={orientation}
+          lightColor={boardColors.light}
+          darkColor={boardColors.dark}
+          withLetters
+          withNumbers
+          position="outside"
+          gutterWidth={gutterWidth}
+        />
+      </View>
+    );
+  }
+
+  return boardContent;
 });
