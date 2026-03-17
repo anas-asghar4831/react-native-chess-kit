@@ -178,8 +178,8 @@ const ArrowSvg = React.memo(function ArrowSvg({
       <Line
         x1={path.x1}
         y1={path.y1}
-        x2={path.x2}
-        y2={path.y2}
+        x2={path.x2 - ux * headSize * 2}
+        y2={path.y2 - uy * headSize * 2}
         stroke={color}
         strokeWidth={width}
         strokeLinecap="round"
