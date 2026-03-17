@@ -201,11 +201,21 @@ export function useBoardGesture({
     const legalSquares = new Set(currentLegalMoves.map((m) => m.square));
     if (canClick && currentSelected && legalSquares.has(square)) {
       cbs.onPieceMoved(currentSelected, square);
+      // Clear optimistic worklet value — move is complete
       activeSquare.value = null;
       isDragging.value = false;
       dragPieceCode.value = null;
       dragTargetSquare.value = null;
       rich?.onHaptic?.('move');
+      return;
+    }
+
+    // Chess.com-style deselect: tapping the already-selected piece toggles it off
+    if (canClick && currentSelected === square) {
+      cbs.onSelectionCleared();
+      activeSquare.value = null;
+      dragPieceCode.value = null;
+      dragTargetSquare.value = null;
       return;
     }
 
@@ -225,9 +235,7 @@ export function useBoardGesture({
           return;
         }
         // First tap: select the piece for premove
-        activeSquare.value = square;
-        dragX.value = touchX;
-        dragY.value = touchY;
+        // activeSquare.value / dragX.value / dragY.value already set by onBegin worklet
         dragPieceCode.value = piece.code;
         cbs.onPieceSelected(square);
         rich?.onPieceClick?.(square, piece.code as PieceCode);
@@ -236,9 +244,7 @@ export function useBoardGesture({
       }
 
       // Normal case: tapped/started dragging a player piece on their turn
-      activeSquare.value = square;
-      dragX.value = touchX;
-      dragY.value = touchY;
+      // activeSquare.value / dragX.value / dragY.value already set by onBegin worklet
       dragPieceCode.value = piece.code;
       draggedPieceRef.current = { square, code: piece.code as PieceCode };
       cbs.onPieceSelected(square);
@@ -262,6 +268,7 @@ export function useBoardGesture({
         return;
       }
 
+      // Clear the optimistic worklet value — no valid piece here
       activeSquare.value = null;
       dragPieceCode.value = null;
       dragTargetSquare.value = null;
@@ -323,10 +330,13 @@ export function useBoardGesture({
       } else {
         callbacksRef.current.onPieceMoved(fromSquare, toSquare);
       }
-    }
 
-    activeSquare.value = null;
-    dragPieceCode.value = null;
+      // Move completed — clear selection
+      activeSquare.value = null;
+      dragPieceCode.value = null;
+    }
+    // When fromSquare === toSquare (tap with no movement), keep selection alive
+    // so the user can complete a click-to-move on the next tap.
   }, [squareSize, orientation, activeSquare, isDragging, dragPieceCode, dragTargetSquare, premovesEnabled]);
 
   // Long press handler (separate gesture, composed with pan)
@@ -348,6 +358,13 @@ export function useBoardGesture({
       .minDistance(0) // Also detect taps (zero-distance pans)
       .onBegin((e) => {
         'worklet';
+        // Set shared values IMMEDIATELY on the UI thread so onStart can read them
+        // synchronously. xyToSquare is tagged 'worklet' — safe to call here.
+        // handleBegin (JS thread) will CLEAR activeSquare if the square is invalid.
+        const sq = xyToSquare(e.x, e.y, squareSize, orientation);
+        activeSquare.value = sq;
+        dragX.value = e.x;
+        dragY.value = e.y;
         // Bridge to JS for piece lookup + selection logic
         runOnJS(handleBegin)(e.x, e.y);
       })
