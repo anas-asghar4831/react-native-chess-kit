@@ -52,6 +52,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Commit lock file changes
+        run: |
+          git add package-lock.json
+          git diff --cached --quiet || git commit -m "chore: sync package-lock.json"
+
       - name: Bump Version
         run: 'npm version ${{ inputs.version }} -m "release: v%s"'
 
