@@ -1,3 +1,8 @@
+[![npm version](https://img.shields.io/npm/v/react-native-chess-kit.svg)](https://www.npmjs.com/package/react-native-chess-kit)
+[![npm downloads](https://img.shields.io/npm/dm/react-native-chess-kit.svg)](https://www.npmjs.com/package/react-native-chess-kit)
+[![CI](https://github.com/anas-asghar4831/react-native-chess-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/anas-asghar4831/react-native-chess-kit/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/react-native-chess-kit.svg)](https://github.com/anas-asghar4831/react-native-chess-kit/blob/main/LICENSE)
+
 # react-native-chess-kit
 
 High-performance chess board for React Native. Built for 60fps on budget Android devices.
@@ -162,6 +167,20 @@ The board follows the chess.com / lichess pattern:
 - **Stable piece IDs** via smart FEN diffing (pieces survive position changes)
 - **chess.js** for internal legal move validation
 - **Worklet-only animation** using transform + opacity (Reanimated fast path)
+
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
+
+## Security
+
+To report a vulnerability, please see our [Security Policy](SECURITY.md).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes.
 
 ## License
 
