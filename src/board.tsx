@@ -9,12 +9,7 @@ import React, {
 } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  FadeOut,
-} from 'react-native-reanimated';
+import { useSharedValue, withTiming, FadeOut } from 'react-native-reanimated';
 
 import type {
   BoardRef,
@@ -185,8 +180,9 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
   const boardColors = colors ?? DEFAULT_BOARD_COLORS;
 
   // Resolve coordinate position: new prop takes precedence over legacy booleans
-  const coordinatePosition = coordinatePositionProp
-    ?? (withLettersProp === false && withNumbersProp === false ? 'none' : 'inside');
+  const coordinatePosition =
+    coordinatePositionProp ??
+    (withLettersProp === false && withNumbersProp === false ? 'none' : 'inside');
   const isOutside = coordinatePosition === 'outside';
   const isCoordVisible = coordinatePosition !== 'none';
 
@@ -209,10 +205,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
     if (prevOrientationRef.current !== orientation) {
       prevOrientationRef.current = orientation;
       if (animateFlip) {
-        flipRotation.value = withTiming(
-          orientation === 'black' ? 180 : 0,
-          { duration: 300 },
-        );
+        flipRotation.value = withTiming(orientation === 'black' ? 180 : 0, { duration: 300 });
       } else {
         flipRotation.value = orientation === 'black' ? 180 : 0;
       }
@@ -253,11 +246,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
   // attacked, highlight it.
   const checkSquareState = useMemo(() => {
     try {
-      return detectCheckSquare(
-        internalFen,
-        () => boardState.isInCheck(),
-        boardState.getTurn,
-      );
+      return detectCheckSquare(internalFen, () => boardState.isInCheck(), boardState.getTurn);
     } catch {
       return null;
     }
@@ -432,7 +421,17 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
         }
       }
     }
-  }, [fen, premovesEnabled, premove, pieces, boardState, consumePremove, clearPremove, onMove, onHaptic]);
+  }, [
+    fen,
+    premovesEnabled,
+    premove,
+    pieces,
+    boardState,
+    consumePremove,
+    clearPremove,
+    onMove,
+    onHaptic,
+  ]);
 
   // --- Rich callbacks ref (stable, for gesture hook) ---
   const richCallbacks = useMemo(
@@ -525,18 +524,18 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
 
   // If no size yet (auto-sizing), render invisible container for measurement
   if (outerSize === 0) {
-    return (
-      <View style={{ flex: 1, aspectRatio: 1 }} onLayout={handleLayout} />
-    );
+    return <View style={{ flex: 1, aspectRatio: 1 }} onLayout={handleLayout} />;
   }
 
   // Inner board with all interactive layers
   const boardContent = (
     <GestureDetector gesture={gesture}>
       <View
-        style={isOutside
-          ? { width: boardSize, height: boardSize, position: 'absolute', top: 0, right: 0 }
-          : { width: boardSize, height: boardSize }}
+        style={
+          isOutside
+            ? { width: boardSize, height: boardSize, position: 'absolute', top: 0, right: 0 }
+            : { width: boardSize, height: boardSize }
+        }
         onLayout={!isOutside && !boardSizeProp ? handleLayout : undefined}
         accessibilityLabel="Chess board"
         accessibilityRole="adjustable"

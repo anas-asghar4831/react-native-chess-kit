@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, Pressable } from 'react-native';
 
-import type { ChessColor, PromotionPiece, PieceSetMap } from './types';
+import type { ChessColor, PromotionPiece } from './types';
 import { squareToXY } from './use-board-pieces';
 import { PROMOTION_PIECE_PADDING } from './constants';
 
@@ -61,7 +61,7 @@ export const PromotionPicker = React.memo(function PromotionPicker({
 }: PromotionPickerProps) {
   const { x, y } = squareToXY(square, squareSize, orientation);
   const pieceSize = squareSize * (1 - PROMOTION_PIECE_PADDING * 2);
-  const padding = squareSize * PROMOTION_PIECE_PADDING;
+  const _padding = squareSize * PROMOTION_PIECE_PADDING;
 
   // Determine if the picker should expand downward or upward
   // If the promotion square is in the top half, expand downward

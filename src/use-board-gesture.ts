@@ -1,9 +1,6 @@
 import { useMemo, useCallback, useRef } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
-import {
-  useSharedValue,
-  runOnJS,
-} from 'react-native-reanimated';
+import { useSharedValue, runOnJS } from 'react-native-reanimated';
 
 import type {
   ChessColor,
@@ -176,54 +173,86 @@ export function useBoardGesture({
   // --- JS-thread bridge functions called from worklets via runOnJS ---
   // These read current values from refs, so they always have fresh data.
 
-  const handleBegin = useCallback((touchX: number, touchY: number) => {
-    const square = xyToSquare(touchX, touchY, squareSize, orientation);
-    const currentPieces = piecesRef.current;
-    const currentSelected = selectedSquareRef.current;
-    const currentLegalMoves = legalMovesRef.current;
-    const cbs = callbacksRef.current;
-    const rich = richCallbacksRef.current;
-    const canClick = moveMethod !== 'drag';
+  const handleBegin = useCallback(
+    (touchX: number, touchY: number) => {
+      const square = xyToSquare(touchX, touchY, squareSize, orientation);
+      const currentPieces = piecesRef.current;
+      const currentSelected = selectedSquareRef.current;
+      const currentLegalMoves = legalMovesRef.current;
+      const cbs = callbacksRef.current;
+      const rich = richCallbacksRef.current;
+      const canClick = moveMethod !== 'drag';
 
-    // Build lookup for the current touch
-    const piece = currentPieces.find((p) => p.square === square);
-    const isPlayerPiece = piece
-      ? player === 'both' || pieceColorToPlayer(piece.color) === player
-      : false;
+      // Build lookup for the current touch
+      const piece = currentPieces.find((p) => p.square === square);
+      const isPlayerPiece = piece
+        ? player === 'both' || pieceColorToPlayer(piece.color) === player
+        : false;
 
-    // Check if it's this piece's turn (for premove detection)
-    const turn = currentTurnRef.current;
-    const isOwnTurn = piece && turn
-      ? isPieceTurn(piece.color, turn)
-      : true; // default to true if turn not tracked
+      // Check if it's this piece's turn (for premove detection)
+      const turn = currentTurnRef.current;
+      const isOwnTurn = piece && turn ? isPieceTurn(piece.color, turn) : true; // default to true if turn not tracked
 
-    // Click-to-move: second tap on a legal target square
-    const legalSquares = new Set(currentLegalMoves.map((m) => m.square));
-    if (canClick && currentSelected && legalSquares.has(square)) {
-      cbs.onPieceMoved(currentSelected, square);
-      // Clear optimistic worklet value — move is complete
-      activeSquare.value = null;
-      isDragging.value = false;
-      dragPieceCode.value = null;
-      dragTargetSquare.value = null;
-      rich?.onHaptic?.('move');
-      return;
-    }
+      // Click-to-move: second tap on a legal target square
+      const legalSquares = new Set(currentLegalMoves.map((m) => m.square));
+      if (canClick && currentSelected && legalSquares.has(square)) {
+        cbs.onPieceMoved(currentSelected, square);
+        // Clear optimistic worklet value — move is complete
+        activeSquare.value = null;
+        isDragging.value = false;
+        dragPieceCode.value = null;
+        dragTargetSquare.value = null;
+        rich?.onHaptic?.('move');
+        return;
+      }
 
-    // Chess.com-style deselect: tapping the already-selected piece toggles it off
-    if (canClick && currentSelected === square) {
-      cbs.onSelectionCleared();
-      activeSquare.value = null;
-      dragPieceCode.value = null;
-      dragTargetSquare.value = null;
-      return;
-    }
+      // Chess.com-style deselect: tapping the already-selected piece toggles it off
+      if (canClick && currentSelected === square) {
+        cbs.onSelectionCleared();
+        activeSquare.value = null;
+        dragPieceCode.value = null;
+        dragTargetSquare.value = null;
+        return;
+      }
 
-    if (isPlayerPiece && piece) {
-      // Premove: player piece but not their turn
-      if (premovesEnabled && !isOwnTurn) {
-        // If there's already a selected square, this tap completes a premove
-        if (currentSelected && currentSelected !== square) {
+      if (isPlayerPiece && piece) {
+        // Premove: player piece but not their turn
+        if (premovesEnabled && !isOwnTurn) {
+          // If there's already a selected square, this tap completes a premove
+          if (currentSelected && currentSelected !== square) {
+            premoveCallbacksRef.current?.onPremoveSet?.({
+              from: currentSelected,
+              to: square,
+            });
+            cbs.onSelectionCleared();
+            activeSquare.value = null;
+            dragPieceCode.value = null;
+            dragTargetSquare.value = null;
+            return;
+          }
+          // First tap: select the piece for premove
+          // activeSquare.value / dragX.value / dragY.value already set by onBegin worklet
+          dragPieceCode.value = piece.code;
+          cbs.onPieceSelected(square);
+          rich?.onPieceClick?.(square, piece.code as PieceCode);
+          rich?.onHaptic?.('select');
+          return;
+        }
+
+        // Normal case: tapped/started dragging a player piece on their turn
+        // activeSquare.value / dragX.value / dragY.value already set by onBegin worklet
+        dragPieceCode.value = piece.code;
+        draggedPieceRef.current = { square, code: piece.code as PieceCode };
+        cbs.onPieceSelected(square);
+
+        // Rich callbacks
+        rich?.onPieceClick?.(square, piece.code as PieceCode);
+        rich?.onHaptic?.('select');
+      } else {
+        // Tapped empty square or opponent piece
+
+        // If premoves enabled and there's a selection, check if this is a premove target
+        if (premovesEnabled && currentSelected && !isOwnTurn) {
           premoveCallbacksRef.current?.onPremoveSet?.({
             from: currentSelected,
             to: square,
@@ -234,116 +263,117 @@ export function useBoardGesture({
           dragTargetSquare.value = null;
           return;
         }
-        // First tap: select the piece for premove
-        // activeSquare.value / dragX.value / dragY.value already set by onBegin worklet
-        dragPieceCode.value = piece.code;
-        cbs.onPieceSelected(square);
-        rich?.onPieceClick?.(square, piece.code as PieceCode);
-        rich?.onHaptic?.('select');
-        return;
-      }
 
-      // Normal case: tapped/started dragging a player piece on their turn
-      // activeSquare.value / dragX.value / dragY.value already set by onBegin worklet
-      dragPieceCode.value = piece.code;
-      draggedPieceRef.current = { square, code: piece.code as PieceCode };
-      cbs.onPieceSelected(square);
-
-      // Rich callbacks
-      rich?.onPieceClick?.(square, piece.code as PieceCode);
-      rich?.onHaptic?.('select');
-    } else {
-      // Tapped empty square or opponent piece
-
-      // If premoves enabled and there's a selection, check if this is a premove target
-      if (premovesEnabled && currentSelected && !isOwnTurn) {
-        premoveCallbacksRef.current?.onPremoveSet?.({
-          from: currentSelected,
-          to: square,
-        });
-        cbs.onSelectionCleared();
+        // Clear the optimistic worklet value — no valid piece here
         activeSquare.value = null;
         dragPieceCode.value = null;
         dragTargetSquare.value = null;
-        return;
-      }
+        if (currentSelected) {
+          cbs.onSelectionCleared();
+        }
 
-      // Clear the optimistic worklet value — no valid piece here
-      activeSquare.value = null;
-      dragPieceCode.value = null;
+        // Rich callback: square click (empty square or opponent piece)
+        rich?.onSquareClick?.(square);
+      }
+    },
+    [
+      squareSize,
+      orientation,
+      player,
+      moveMethod,
+      premovesEnabled,
+      activeSquare,
+      dragX,
+      dragY,
+      isDragging,
+      dragPieceCode,
+      dragTargetSquare,
+    ],
+  );
+
+  const handleDragStart = useCallback(
+    (touchX: number, touchY: number) => {
+      const rich = richCallbacksRef.current;
+      const dragged = draggedPieceRef.current;
+      if (dragged) {
+        rich?.onPieceDragBegin?.(dragged.square, dragged.code);
+      }
+      // Update drag target to current square
+      const square = xyToSquare(touchX, touchY, squareSize, orientation);
+      dragTargetSquare.value = square;
+    },
+    [squareSize, orientation, dragTargetSquare],
+  );
+
+  const handleDragUpdate = useCallback(
+    (touchX: number, touchY: number) => {
+      // Update drag target square (for highlight). This runs on JS thread
+      // but is called from worklet via runOnJS only when the square changes.
+      const square = xyToSquare(touchX, touchY, squareSize, orientation);
+      dragTargetSquare.value = square;
+    },
+    [squareSize, orientation, dragTargetSquare],
+  );
+
+  const handleEnd = useCallback(
+    (touchX: number, touchY: number) => {
+      const fromSquare = activeSquare.value;
+      if (!fromSquare) return;
+
+      const toSquare = xyToSquare(touchX, touchY, squareSize, orientation);
+      isDragging.value = false;
       dragTargetSquare.value = null;
-      if (currentSelected) {
-        cbs.onSelectionCleared();
+
+      const rich = richCallbacksRef.current;
+
+      // Fire drag end callback
+      const dragged = draggedPieceRef.current;
+      if (dragged) {
+        rich?.onPieceDragEnd?.(toSquare, dragged.code);
+        draggedPieceRef.current = null;
       }
 
-      // Rich callback: square click (empty square or opponent piece)
-      rich?.onSquareClick?.(square);
-    }
-  }, [squareSize, orientation, player, moveMethod, premovesEnabled, activeSquare, dragX, dragY, isDragging, dragPieceCode, dragTargetSquare]);
+      if (fromSquare !== toSquare) {
+        // Check if this is a premove (not your turn)
+        const turn = currentTurnRef.current;
+        const piece = piecesRef.current.find((p) => p.square === fromSquare);
+        const isOwnTurn = piece && turn ? isPieceTurn(piece.color, turn) : true;
 
-  const handleDragStart = useCallback((touchX: number, touchY: number) => {
-    const rich = richCallbacksRef.current;
-    const dragged = draggedPieceRef.current;
-    if (dragged) {
-      rich?.onPieceDragBegin?.(dragged.square, dragged.code);
-    }
-    // Update drag target to current square
-    const square = xyToSquare(touchX, touchY, squareSize, orientation);
-    dragTargetSquare.value = square;
-  }, [squareSize, orientation, dragTargetSquare]);
+        if (premovesEnabled && !isOwnTurn) {
+          premoveCallbacksRef.current?.onPremoveSet?.({
+            from: fromSquare,
+            to: toSquare,
+          });
+        } else {
+          callbacksRef.current.onPieceMoved(fromSquare, toSquare);
+        }
 
-  const handleDragUpdate = useCallback((touchX: number, touchY: number) => {
-    // Update drag target square (for highlight). This runs on JS thread
-    // but is called from worklet via runOnJS only when the square changes.
-    const square = xyToSquare(touchX, touchY, squareSize, orientation);
-    dragTargetSquare.value = square;
-  }, [squareSize, orientation, dragTargetSquare]);
-
-  const handleEnd = useCallback((touchX: number, touchY: number) => {
-    const fromSquare = activeSquare.value;
-    if (!fromSquare) return;
-
-    const toSquare = xyToSquare(touchX, touchY, squareSize, orientation);
-    isDragging.value = false;
-    dragTargetSquare.value = null;
-
-    const rich = richCallbacksRef.current;
-
-    // Fire drag end callback
-    const dragged = draggedPieceRef.current;
-    if (dragged) {
-      rich?.onPieceDragEnd?.(toSquare, dragged.code);
-      draggedPieceRef.current = null;
-    }
-
-    if (fromSquare !== toSquare) {
-      // Check if this is a premove (not your turn)
-      const turn = currentTurnRef.current;
-      const piece = piecesRef.current.find((p) => p.square === fromSquare);
-      const isOwnTurn = piece && turn ? isPieceTurn(piece.color, turn) : true;
-
-      if (premovesEnabled && !isOwnTurn) {
-        premoveCallbacksRef.current?.onPremoveSet?.({
-          from: fromSquare,
-          to: toSquare,
-        });
-      } else {
-        callbacksRef.current.onPieceMoved(fromSquare, toSquare);
+        // Move completed — clear selection
+        activeSquare.value = null;
+        dragPieceCode.value = null;
       }
-
-      // Move completed — clear selection
-      activeSquare.value = null;
-      dragPieceCode.value = null;
-    }
-    // When fromSquare === toSquare (tap with no movement), keep selection alive
-    // so the user can complete a click-to-move on the next tap.
-  }, [squareSize, orientation, activeSquare, isDragging, dragPieceCode, dragTargetSquare, premovesEnabled]);
+      // When fromSquare === toSquare (tap with no movement), keep selection alive
+      // so the user can complete a click-to-move on the next tap.
+    },
+    [
+      squareSize,
+      orientation,
+      activeSquare,
+      isDragging,
+      dragPieceCode,
+      dragTargetSquare,
+      premovesEnabled,
+    ],
+  );
 
   // Long press handler (separate gesture, composed with pan)
-  const handleLongPress = useCallback((touchX: number, touchY: number) => {
-    const square = xyToSquare(touchX, touchY, squareSize, orientation);
-    richCallbacksRef.current?.onSquareLongPress?.(square);
-  }, [squareSize, orientation]);
+  const _handleLongPress = useCallback(
+    (touchX: number, touchY: number) => {
+      const square = xyToSquare(touchX, touchY, squareSize, orientation);
+      richCallbacksRef.current?.onSquareLongPress?.(square);
+    },
+    [squareSize, orientation],
+  );
 
   // --- Build the gesture (STABLE — only changes on layout/config changes) ---
   const canDrag = moveMethod !== 'click';

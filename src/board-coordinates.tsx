@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import type { ChessColor, CoordinatePosition } from './types';
+import type { ChessColor } from './types';
 
 type BoardCoordinatesProps = {
   boardSize: number;

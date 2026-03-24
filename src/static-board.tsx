@@ -1,8 +1,12 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 
-import type { StaticBoardProps, ChessColor, PieceCode } from './types';
-import { DEFAULT_BOARD_COLORS, DEFAULT_LAST_MOVE_COLOR, COORDINATE_GUTTER_SCALE } from './constants';
+import type { StaticBoardProps, PieceCode } from './types';
+import {
+  DEFAULT_BOARD_COLORS,
+  DEFAULT_LAST_MOVE_COLOR,
+  COORDINATE_GUTTER_SCALE,
+} from './constants';
 import { DefaultPieceSet } from './pieces';
 import { useBoardPieces, squareToXY } from './use-board-pieces';
 import { BoardBackground } from './board-background';
@@ -44,8 +48,7 @@ export const StaticBoard = React.memo(function StaticBoard({
   const boardColors = colors ?? DEFAULT_BOARD_COLORS;
 
   // Resolve coordinate position: new prop > legacy boolean > 'none'
-  const coordinatePosition = coordinatePositionProp
-    ?? (withCoordinates ? 'inside' : 'none');
+  const coordinatePosition = coordinatePositionProp ?? (withCoordinates ? 'inside' : 'none');
   const isOutside = coordinatePosition === 'outside';
   const isCoordVisible = coordinatePosition !== 'none';
 
@@ -70,16 +73,16 @@ export const StaticBoard = React.memo(function StaticBoard({
 
   // If no size yet (auto-sizing), render invisible container for measurement
   if (outerSize === 0) {
-    return (
-      <View style={{ flex: 1, aspectRatio: 1 }} onLayout={handleLayout} />
-    );
+    return <View style={{ flex: 1, aspectRatio: 1 }} onLayout={handleLayout} />;
   }
 
   const boardContent = (
     <View
-      style={isOutside
-        ? { width: boardSize, height: boardSize, position: 'absolute', top: 0, right: 0 }
-        : { width: boardSize, height: boardSize }}
+      style={
+        isOutside
+          ? { width: boardSize, height: boardSize, position: 'absolute', top: 0, right: 0 }
+          : { width: boardSize, height: boardSize }
+      }
       onLayout={!isOutside && !boardSizeProp ? handleLayout : undefined}
       accessibilityLabel="Chess board"
       accessibilityRole="image"
@@ -142,11 +145,7 @@ export const StaticBoard = React.memo(function StaticBoard({
 
       {/* Layer 5: Arrows */}
       {arrows && arrows.length > 0 && (
-        <BoardArrows
-          boardSize={boardSize}
-          orientation={orientation}
-          arrows={arrows}
-        />
+        <BoardArrows boardSize={boardSize} orientation={orientation} arrows={arrows} />
       )}
 
       {/* Layer 6: Annotations */}
