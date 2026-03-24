@@ -46,10 +46,16 @@ export function useBoardState(initialFen: string): BoardStateReturn {
   const getLegalMoves = useCallback((square: string): LegalMoveTarget[] => {
     try {
       const moves = chessRef.current.moves({ square: square as Square, verbose: true });
-      return moves.map((m) => ({
-        square: m.to,
-        isCapture: m.captured !== undefined,
-      }));
+      // Deduplicate by target square — chess.js returns 4 promotion variants
+      // (q, r, b, n) per target square, but we only need one dot per square.
+      const seen = new Set<string>();
+      const result: LegalMoveTarget[] = [];
+      for (const m of moves) {
+        if (seen.has(m.to)) continue;
+        seen.add(m.to);
+        result.push({ square: m.to, isCapture: m.captured !== undefined });
+      }
+      return result;
     } catch {
       return [];
     }
@@ -98,14 +104,17 @@ export function useBoardState(initialFen: string): BoardStateReturn {
 
   // Stable reference so Board's useEffect([fen, boardState]) only re-runs
   // when the fen prop changes — not on every render.
-  return useMemo(() => ({
-    getLegalMoves,
-    isPlayerPiece,
-    applyMove,
-    undoMove,
-    loadFen,
-    getFen,
-    getTurn,
-    isInCheck,
-  }), [getLegalMoves, isPlayerPiece, applyMove, undoMove, loadFen, getFen, getTurn, isInCheck]);
+  return useMemo(
+    () => ({
+      getLegalMoves,
+      isPlayerPiece,
+      applyMove,
+      undoMove,
+      loadFen,
+      getFen,
+      getTurn,
+      isInCheck,
+    }),
+    [getLegalMoves, isPlayerPiece, applyMove, undoMove, loadFen, getFen, getTurn, isInCheck],
+  );
 }

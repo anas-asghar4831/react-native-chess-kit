@@ -25,8 +25,18 @@ export type HapticType = 'select' | 'move' | 'capture' | 'error';
 
 /** Standard piece codes used throughout the library */
 export type PieceCode =
-  | 'wp' | 'wn' | 'wb' | 'wr' | 'wq' | 'wk'
-  | 'bp' | 'bn' | 'bb' | 'br' | 'bq' | 'bk';
+  | 'wp'
+  | 'wn'
+  | 'wb'
+  | 'wr'
+  | 'wq'
+  | 'wk'
+  | 'bp'
+  | 'bn'
+  | 'bb'
+  | 'br'
+  | 'bq'
+  | 'bk';
 
 /** A single piece on the board with its position and identity */
 export type BoardPiece = {
@@ -278,8 +288,19 @@ export type BoardProps = {
   // --- Promotion ---
 
   /**
-   * Called when a pawn promotion occurs. If not provided, auto-promotes to queen.
-   * Return the chosen piece to complete the promotion.
+   * Auto-promote pawns to this piece without showing the picker.
+   * When set, the promotion picker is skipped entirely.
+   * Example: `autoPromoteTo="q"` always promotes to queen.
+   */
+  autoPromoteTo?: PromotionPiece;
+
+  /**
+   * Called when a pawn promotion occurs. If not provided, the built-in
+   * promotion picker is shown. Return the chosen piece to complete the
+   * promotion, or throw/reject to cancel.
+   *
+   * When provided, the built-in picker is NOT shown — the consumer is
+   * expected to handle piece selection via their own UI.
    */
   onPromotion?: (from: string, to: string) => Promise<PromotionPiece> | PromotionPiece;
 
