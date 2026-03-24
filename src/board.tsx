@@ -155,6 +155,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
     pieceExitAnimation,
 
     // Promotion
+    autoPromoteTo,
     onPromotion,
 
     // Callbacks
@@ -320,18 +321,35 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
 
       // Check for promotion
       if (isPromotionMove(from, to)) {
-        if (onPromotion) {
-          const piece = pieces.find((p) => p.square === from);
-          const color = piece?.color ?? 'w';
-          setPromotionState({ from, to, color });
+        // 1. Auto-promote to a specific piece (no picker, no callback)
+        if (autoPromoteTo) {
+          const result = boardState.applyMove(from, to, autoPromoteTo);
+          if (result.applied && result.fen) {
+            setInternalFen(result.fen);
+          }
+          onMove?.({ from, to });
           return;
         }
-        // Auto-promote to queen
-        const result = boardState.applyMove(from, to, 'q');
-        if (result.applied && result.fen) {
-          setInternalFen(result.fen);
+
+        // 2. Consumer handles promotion UI externally via callback
+        if (onPromotion) {
+          try {
+            const choice = await onPromotion(from, to);
+            const result = boardState.applyMove(from, to, choice);
+            if (result.applied && result.fen) {
+              setInternalFen(result.fen);
+            }
+            onMove?.({ from, to });
+          } catch {
+            // Promotion cancelled by consumer — piece stays at origin
+          }
+          return;
         }
-        onMove?.({ from, to });
+
+        // 3. Default: show built-in promotion picker
+        const piece = pieces.find((p) => p.square === from);
+        const color = piece?.color ?? 'w';
+        setPromotionState({ from, to, color });
         return;
       }
 
@@ -346,38 +364,24 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       // If chess.js rejected the move (truly illegal), do nothing —
       // piece stays at its original square.
     },
-    [onMove, onPromotion, isPromotionMove, pieces, boardState],
+    [onMove, onPromotion, autoPromoteTo, isPromotionMove, pieces, boardState],
   );
 
   // --- Promotion picker handlers ---
+  // Only reached when neither autoPromoteTo nor onPromotion is set.
   const handlePromotionSelect = useCallback(
-    async (piece: PromotionPiece) => {
+    (piece: PromotionPiece) => {
       if (!promotionState) return;
       const { from, to } = promotionState;
       setPromotionState(null);
 
-      const promo = piece.toLowerCase();
-
-      if (onPromotion) {
-        try {
-          const choice = await onPromotion(from, to);
-          const result = boardState.applyMove(from, to, choice);
-          if (result.applied && result.fen) {
-            setInternalFen(result.fen);
-          }
-          onMove?.({ from, to });
-        } catch {
-          // Promotion cancelled — piece stays at origin
-        }
-      } else {
-        const result = boardState.applyMove(from, to, promo);
-        if (result.applied && result.fen) {
-          setInternalFen(result.fen);
-        }
-        onMove?.({ from, to });
+      const result = boardState.applyMove(from, to, piece);
+      if (result.applied && result.fen) {
+        setInternalFen(result.fen);
       }
+      onMove?.({ from, to });
     },
-    [promotionState, onPromotion, onMove, boardState],
+    [promotionState, onMove, boardState],
   );
 
   const handlePromotionCancel = useCallback(() => {
