@@ -36,7 +36,7 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
 
       - name: Type Check
         run: npm run typecheck
