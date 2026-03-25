@@ -327,7 +327,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
           if (result.applied && result.fen) {
             setInternalFen(result.fen);
           }
-          onMove?.({ from, to });
+          onMove?.({ from, to, promotion: autoPromoteTo });
           return;
         }
 
@@ -339,7 +339,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
             if (result.applied && result.fen) {
               setInternalFen(result.fen);
             }
-            onMove?.({ from, to });
+            onMove?.({ from, to, promotion: choice });
           } catch {
             // Promotion cancelled by consumer — piece stays at origin
           }
@@ -379,7 +379,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       if (result.applied && result.fen) {
         setInternalFen(result.fen);
       }
-      onMove?.({ from, to });
+      onMove?.({ from, to, promotion: piece });
     },
     [promotionState, onMove, boardState],
   );
@@ -417,7 +417,7 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
         const result = boardState.applyMove(consumed.from, consumed.to, consumed.promotion);
         if (result.applied && result.fen) {
           setInternalFen(result.fen);
-          onMove?.({ from: consumed.from, to: consumed.to });
+          onMove?.({ from: consumed.from, to: consumed.to, promotion: consumed.promotion });
           onHaptic?.('move');
         } else {
           // Premove was illegal — discard silently

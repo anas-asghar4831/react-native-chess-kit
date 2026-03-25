@@ -306,8 +306,8 @@ export type BoardProps = {
 
   // --- Callbacks ---
 
-  /** Called after a visual move is applied */
-  onMove?: (info: { from: string; to: string }) => void;
+  /** Called after a visual move is applied. Includes `promotion` when a pawn promotes. */
+  onMove?: (info: { from: string; to: string; promotion?: PromotionPiece }) => void;
   /** Called when a piece is tapped */
   onPieceClick?: (square: string, piece: PieceCode) => void;
   /** Called when an empty square or opponent piece is tapped */
