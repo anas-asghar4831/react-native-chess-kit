@@ -290,11 +290,13 @@ export const Board = forwardRef<BoardRef, BoardProps>(function Board(
       if (piece.code !== 'wp' && piece.code !== 'bp') return false;
       // Must be moving to the last rank
       const toRank = to[1];
-      if (piece.color === 'w' && toRank === '8') return true;
-      if (piece.color === 'b' && toRank === '1') return true;
-      return false;
+      const isBackRankMove =
+        (piece.color === 'w' && toRank === '8') || (piece.color === 'b' && toRank === '1');
+      if (!isBackRankMove) return false;
+
+      return boardState.getLegalMoves(from).some((move) => move.square === to);
     },
-    [pieces],
+    [pieces, boardState],
   );
 
   // --- Gesture callbacks ---
